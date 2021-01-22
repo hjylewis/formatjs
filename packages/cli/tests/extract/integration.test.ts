@@ -69,6 +69,19 @@ test('basic case: defineMessages -> out-file with location', async () => {
   ).toMatchSnapshot();
 }, 20000);
 
+test('multiple source locations + pragma', async () => {
+  process.chdir(__dirname);
+  await expect(
+    exec(
+      `${BIN_PATH} extract location/*.js --extract-source-location --out-file ${ARTIFACT_PATH}/location/multiple.json`
+    )
+  ).resolves.toMatchSnapshot();
+
+  expect(
+    await readJSON(join(ARTIFACT_PATH, 'location/multiple.json'))
+  ).toMatchSnapshot();
+}, 20000);
+
 test('typescript -> stdout', async () => {
   await expect(
     exec(`${BIN_PATH} extract ${join(__dirname, 'typescript/actual.tsx')}`)

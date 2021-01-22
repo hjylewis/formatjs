@@ -14,7 +14,7 @@ export interface ExtractionResult<M = Record<string, string>> {
   /**
    * List of extracted messages
    */
-  messages: MessageDescriptor[];
+  messages: ExtractedMessageDescriptor[];
   /**
    * Metadata extracted w/ `pragma`
    */
@@ -34,6 +34,16 @@ export interface ExtractedMessageDescriptor extends MessageDescriptor {
    * Metadata extracted from pragma
    */
   meta?: Record<string, string>;
+}
+
+export interface MergedMessageDescriptor
+  extends Omit<MessageDescriptor, 'file' | 'start' | 'end'> {
+  locations?: Array<
+    Pick<
+      ExtractedMessageDescriptor,
+      'col' | 'line' | 'meta' | 'file' | 'start' | 'end'
+    >
+  >;
 }
 
 export type ExtractCLIOptions = Omit<
@@ -185,7 +195,7 @@ export async function extract(
     (r): r is ExtractionResult => !!r
   );
 
-  const extractedMessages = new Map<string, MessageDescriptor>();
+  const extractedMessages = new Map<string, MergedMessageDescriptor>();
 
   for (const {messages} of extractionResults) {
     for (const message of messages) {
@@ -219,11 +229,45 @@ ${JSON.stringify(message, undefined, 2)}`
             warn(error.message);
           }
         }
+
+        const {file, start, end, line, col, meta, ...restOrMessage} = message;
+        const location = {
+          file,
+          start,
+          end,
+          line,
+          col,
+          meta,
+        };
+        const hasLocation =
+          Object.values(location).filter(v => v !== undefined).length > 0;
+        const locations = hasLocation
+          ? (existing.locations || []).concat([location])
+          : existing.locations;
+        extractedMessages.set(id, {
+          ...restOrMessage,
+          locations,
+        });
       }
-      extractedMessages.set(id, message);
+      const {file, start, end, line, col, meta, ...restOrMessage} = message;
+      const location = {
+        file,
+        start,
+        end,
+        line,
+        col,
+        meta,
+      };
+      const hasLocation =
+        Object.values(location).filter(v => v !== undefined).length > 0;
+      const locations = hasLocation ? [location] : undefined;
+      extractedMessages.set(id, {
+        ...restOrMessage,
+        locations,
+      });
     }
   }
-  const results: Record<string, Omit<MessageDescriptor, 'id'>> = {};
+  const results: Record<string, Omit<MergedMessageDescriptor, 'id'>> = {};
   const messages = Array.from(extractedMessages.values());
   for (const {id, ...msg} of messages) {
     results[id] = msg;
